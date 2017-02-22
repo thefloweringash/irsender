@@ -1,0 +1,12 @@
+// -*- c -*-
+
+// Config
+
+#define WIFI_SSID     "pretty_fly_for_a_wifi"
+#define WIFI_PASSWORD ""
+
+#define MQTT_SERVER   "test.mosquitto.org"
+#define MQTT_CLIENTID "ESP8266Client/widget1"
+#define MQTT_USERNAME "someuser"
+#define MQTT_PASSWORD "somepassword"
+#define MQTT_TOPIC    "ir/widget1/send"
