@@ -157,6 +157,8 @@ static void mqtt_handle_message(char* topic, const uint8_t* data, size_t size) {
     }
 
     led_off();
+
+    delay(100); // give all IR protocols a nice big gap
 }
 
 
