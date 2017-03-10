@@ -3,7 +3,7 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
-#include <arduino.h>
+#include <Arduino.h>
 
 template <typename T>
 T read_unaligned(const uint8_t *data) {

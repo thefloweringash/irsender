@@ -1,4 +1,4 @@
-#include <arduino.h>
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include <IRremoteESP8266.h>
@@ -107,18 +107,11 @@ static void mqtt_reconnect() {
   }
 }
 
-static void mqtt_handle_message(char* topic, const uint8_t* data, size_t size) {
-    Serial.print("Message arrived [");
-    Serial.print(topic);
-    Serial.print("] size = ");
-    Serial.println(size);
+static void ir_send_one_command(const uint8_t *data, size_t size) {
+    uint8_t encoding = read_unaligned<uint8_t>(data);
 
-    led_on();
-
-    uint32_t encoding = read_unaligned<uint32_t>(data);
-
-    data += sizeof(uint32_t);
-    size -= sizeof(uint32_t);
+    data += sizeof(encoding);
+    size -= sizeof(encoding);
 
     switch (encoding) {
     case NEC:
@@ -142,6 +135,10 @@ static void mqtt_handle_message(char* topic, const uint8_t* data, size_t size) {
         }
         break;
 
+    case DELAY:
+        delay(read_unaligned<uint16_t>(data));
+        break;
+
     case RAW:
         ir_send_raw(data, size);
         break;
@@ -154,6 +151,33 @@ static void mqtt_handle_message(char* topic, const uint8_t* data, size_t size) {
         Serial.print("Unexpected encoding: ");
         Serial.print(encoding);
         Serial.println();
+    }
+
+}
+
+static void mqtt_handle_message(char* topic, const uint8_t* data, size_t size) {
+    Serial.print("Message arrived [");
+    Serial.print(topic);
+    Serial.print("] size = ");
+    Serial.println(size);
+
+    led_on();
+
+    const uint8_t *end = data + size;
+    uint8_t nCommands = read_unaligned<uint8_t>(data);
+    data += sizeof(nCommands);
+    for (uint8_t cmd = 0; cmd < nCommands; cmd++) {
+        uint8_t cmdSize = read_unaligned<uint8_t>(data);
+        data += sizeof(cmdSize);
+        if (data + cmdSize > end) {
+            Serial.print("Invalid command encoding; length overruns mqtt packet\n");
+            break;
+        }
+        ir_send_one_command(data, cmdSize);
+        data += cmdSize;
+    }
+    if (data != end) {
+        Serial.print("Invalid command encoding; parsed contents not exhaustive\n");
     }
 
     led_off();
