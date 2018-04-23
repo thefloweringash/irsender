@@ -1,0 +1,8 @@
+#define WIFI_SSID     "pretty_fly_for_a_wifi"
+#define WIFI_PASSWORD ""
+
+#define MQTT_SERVER   "test.mosquitto.org"
+#define MQTT_USERNAME "someuser"
+#define MQTT_PASSWORD "somepassword"
+
+#define MQTT_TOPIC    "ir/" MQTT_CLIENTID "/send"

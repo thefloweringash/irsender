@@ -7,6 +7,7 @@
 #include "irsendext.h"
 
 #include "config.h"
+#include "config-common.h"
 
 // Config
 
