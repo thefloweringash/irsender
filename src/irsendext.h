@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <IRremoteESP8266.h>
+#include <IRsend.h>
 
 class IRsendExt : public IRsend {
 public:
@@ -15,7 +16,6 @@ public:
 
 enum custom_encoding_t {
     DELAY         = 239,
-    RAW           = 240,
     PANASONIC_RAW = 241,
 };
 

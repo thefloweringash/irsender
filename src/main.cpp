@@ -31,7 +31,7 @@ static void led_on()    { digitalWrite(BUILTIN_LED, LOW);    }
 static void led_off()   { digitalWrite(BUILTIN_LED, HIGH);   }
 
 static void ir_send_raw(const uint8_t *data, size_t length) {
-    typedef uint32_t ir_interval_t;
+    typedef uint16_t ir_interval_t;
     const intptr_t ALIGN_MASK = ~(1 << (sizeof(ir_interval_t) - 1));
 
     uint32_t frequency = read_unaligned<uint32_t>(data);
