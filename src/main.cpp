@@ -35,10 +35,6 @@ IRsendExt    ir_sender(IR_PIN);
 #define I2C_ADDRESS 0x45
 ClosedCube_SHT31D sht30;
 
-static void led_setup() { /* pinMode     (LED_BUILTIN, OUTPUT); */ }
-static void led_on()    { /* digitalWrite(LED_BUILTIN, LOW);    */ }
-static void led_off()   { /* digitalWrite(LED_BUILTIN, HIGH);   */ }
-
 static void ir_send_raw(const uint8_t *data, size_t length) {
     typedef uint16_t ir_interval_t;
     const intptr_t ALIGN_MASK = ~(1 << (sizeof(ir_interval_t) - 1));
@@ -174,8 +170,6 @@ static void mqtt_handle_message(char* topic, const uint8_t* data, size_t size) {
     Serial.print("] size = ");
     Serial.println(size);
 
-    led_on();
-
     const uint8_t *end = data + size;
     uint8_t nCommands = read_unaligned<uint8_t>(data);
 
@@ -198,8 +192,6 @@ static void mqtt_handle_message(char* topic, const uint8_t* data, size_t size) {
         Serial.print("Invalid command encoding; parsed contents not exhaustive\n");
     }
 
-    led_off();
-
     delay(100); // give all IR protocols a nice big gap
 }
 
@@ -208,9 +200,6 @@ void setup() {
     pinMode(IR_PIN, OUTPUT);
     digitalWrite(IR_PIN, LOW);
     ir_sender.begin();
-
-    led_setup();
-    led_on();
 
     Serial.begin(76800);
     delay(1);
@@ -222,8 +211,6 @@ void setup() {
 
     mqtt_client.setServer(mqtt_server, 1883);
     mqtt_client.setCallback(mqtt_handle_message);
-
-    led_off();
 }
 
 void loop() {
