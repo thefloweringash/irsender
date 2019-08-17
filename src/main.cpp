@@ -1,7 +1,11 @@
 #include <Arduino.h>
+#include <Wire.h>
+
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include <IRremoteESP8266.h>
+
+#include <ClosedCube_SHT31D.h>
 
 #include "memory.h"
 #include "irsendext.h"
@@ -14,21 +18,22 @@
 const char wifi_ssid[]     = WIFI_SSID;
 const char wifi_password[] = WIFI_PASSWORD;
 
-const char mqtt_server[]   = MQTT_SERVER;
-const char mqtt_clientid[] = MQTT_CLIENTID;
-const char mqtt_username[] = MQTT_USERNAME;
-const char mqtt_password[] = MQTT_PASSWORD;
-const char mqtt_topic[]    = MQTT_TOPIC;
+const char mqtt_server[]     = MQTT_SERVER;
+const char mqtt_clientid[]   = MQTT_CLIENTID;
+const char mqtt_username[]   = MQTT_USERNAME;
+const char mqtt_password[]   = MQTT_PASSWORD;
+const char mqtt_ir_topic[]   = MQTT_IR_TOPIC;
+const char mqtt_temp_topic[] = MQTT_TEMP_TOPIC;
+const char mqtt_rh_topic[]   = MQTT_RH_TOPIC;
 
 // Globals
-
+#define IR_PIN D5
 WiFiClient   wifi_client;
 PubSubClient mqtt_client(wifi_client);
-IRsendExt    ir_sender(D1);
+IRsendExt    ir_sender(IR_PIN);
 
-static void led_setup() { pinMode     (BUILTIN_LED, OUTPUT); }
-static void led_on()    { digitalWrite(BUILTIN_LED, LOW);    }
-static void led_off()   { digitalWrite(BUILTIN_LED, HIGH);   }
+#define I2C_ADDRESS 0x45
+ClosedCube_SHT31D sht30;
 
 static void ir_send_raw(const uint8_t *data, size_t length) {
     typedef uint16_t ir_interval_t;
@@ -98,7 +103,7 @@ static void mqtt_reconnect() {
     Serial.print("Attempting MQTT connection...");
     if (mqtt_client.connect(mqtt_clientid, mqtt_username, mqtt_password)) {
       Serial.println("connected");
-      mqtt_client.subscribe(mqtt_topic);
+      mqtt_client.subscribe(mqtt_ir_topic);
     } else {
       Serial.print("failed, rc=");
       Serial.print(mqtt_client.state());
@@ -141,6 +146,7 @@ static void ir_send_one_command(const uint8_t *data, size_t size) {
         break;
 
     case RAW:
+    case 240: // Andrew's IR sender sends this, thinking it's raw.
         ir_send_raw(data, size);
         break;
 
@@ -152,6 +158,8 @@ static void ir_send_one_command(const uint8_t *data, size_t size) {
         Serial.print("Unexpected encoding: ");
         Serial.print(encoding);
         Serial.println();
+        Serial.print("Raw is ");
+        Serial.println(RAW);
     }
 
 }
@@ -162,10 +170,12 @@ static void mqtt_handle_message(char* topic, const uint8_t* data, size_t size) {
     Serial.print("] size = ");
     Serial.println(size);
 
-    led_on();
-
     const uint8_t *end = data + size;
     uint8_t nCommands = read_unaligned<uint8_t>(data);
+
+    Serial.print("Received command bundle of ");
+    Serial.println(nCommands);
+
     data += sizeof(nCommands);
     for (uint8_t cmd = 0; cmd < nCommands; cmd++) {
         uint8_t cmdSize = read_unaligned<uint8_t>(data);
@@ -174,6 +184,7 @@ static void mqtt_handle_message(char* topic, const uint8_t* data, size_t size) {
             Serial.print("Invalid command encoding; length overruns mqtt packet\n");
             break;
         }
+
         ir_send_one_command(data, cmdSize);
         data += cmdSize;
     }
@@ -181,31 +192,56 @@ static void mqtt_handle_message(char* topic, const uint8_t* data, size_t size) {
         Serial.print("Invalid command encoding; parsed contents not exhaustive\n");
     }
 
-    led_off();
-
     delay(100); // give all IR protocols a nice big gap
 }
 
 
 void setup() {
+    pinMode(IR_PIN, OUTPUT);
+    digitalWrite(IR_PIN, LOW);
     ir_sender.begin();
 
-    led_setup();
-    led_on();
+    Serial.begin(76800);
+    delay(1);
 
-    Serial.begin(115200);
+    Wire.begin();
+    sht30.begin(I2C_ADDRESS);
 
     wifi_setup();
 
     mqtt_client.setServer(mqtt_server, 1883);
     mqtt_client.setCallback(mqtt_handle_message);
-
-    led_off();
 }
 
 void loop() {
+    static unsigned long last_sht = 0;
+
     if (!mqtt_client.connected()) {
         mqtt_reconnect();
     }
     mqtt_client.loop();
+
+    if ( (millis() - last_sht) > 5000) {
+        SHT31D result = sht30.readTempAndHumidity(SHT3XD_REPEATABILITY_HIGH,
+                                                  SHT3XD_MODE_POLLING, 50);
+        if (result.error == SHT3XD_NO_ERROR) {
+            float temp = result.t;
+            float rh = result.rh;
+            char temp_s[10];
+            char rh_s[10];
+
+            snprintf(temp_s, sizeof(temp_s), "%.2f", temp);
+            snprintf(rh_s, sizeof(rh_s), "%.2f", rh);
+
+            Serial.print(F("temp: "));
+            Serial.print(temp_s);
+            Serial.print(F(", humidity: "));
+            Serial.println(rh_s);
+
+            mqtt_client.publish(mqtt_temp_topic, temp_s);
+            mqtt_client.publish(mqtt_rh_topic, rh_s);
+
+            last_sht = millis();
+        }
+    }
 }
