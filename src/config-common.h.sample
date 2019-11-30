@@ -5,4 +5,6 @@
 #define MQTT_USERNAME "someuser"
 #define MQTT_PASSWORD "somepassword"
 
-#define MQTT_TOPIC    "ir/" MQTT_CLIENTID "/send"
+#define MQTT_IR_TOPIC    "ir/" MQTT_CLIENTID "/send"
+#define MQTT_TEMP_TOPIC    "ir/" MQTT_CLIENTID "/temperature"
+#define MQTT_RH_TOPIC    "ir/" MQTT_CLIENTID "/humidity"
